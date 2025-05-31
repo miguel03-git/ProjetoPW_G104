@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Gestão de Ocorrências</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/gestaomateriais.css" />
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+</head>
+<body>
+<div id="app">
+  <!-- SIDEBAR -->
+  <aside class="sidebar d-flex flex-column p-3">
+    <div class="logo d-flex flex-column align-items-center mb-3">
+      <img src="../chat.png" alt="Logo" style="width: 70px; margin-bottom: 10px;">
+      <h2 class="logo-text" style="font-size:18px; font-weight:bold;">EYES EVERYWHERE</h2>
+    </div>
+    <hr />
+    <ul class="nav flex-column mb-auto">
+      <li><a href="../html/dashboard.html" class="nav-link text-white"><i class="bi bi-speedometer2 me-2"></i> Dashboard</a></li>
+      <li><a href="../html/gerirperitos.html" class="nav-link text-white"><i class="bi bi-person-badge me-2"></i> Gestão de Peritos</a></li>
+      <li><a href="../html/gestaoauditorias.html" class="nav-link text-white"><i class="bi bi-clipboard-check me-2"></i> Gestão de Auditorias</a></li>
+      <li><a href="../html/gestaoocorrencias.html" class="nav-link text-white active"><i class="bi bi-exclamation-triangle me-2"></i> Gestão de Ocorrências</a></li>
+      <li><a href="../html/gestaomateriais.html" class="nav-link text-white"><i class="bi bi-box-seam me-2"></i> Gestão de Materiais</a></li>
+    </ul>
+    <hr />
+  </aside>
+
+  <!-- CONTEÚDO PRINCIPAL -->
+  <div class="content">
+    <div class="topbar d-flex justify-content-between align-items-center px-3 py-2">
+      <div class="search-bar d-flex align-items-center">
+        <input type="text" class="form-control me-2" placeholder="Procurar ocorrência..." v-model="filtro" />
+        <button class="btn"><i class="bi bi-search"></i></button>
+      </div>
+      <div class="user-info">
+        <span><i class="bi bi-bell"></i> <span class="badge bg-danger"></span></span>
+        <span><i class="bi bi-envelope"></i> <span class="badge bg-danger"></span></span>
+        <span class="username">Admin</span>
+      </div>
+    </div>
+
+    <!-- TABELA -->
+    <div class="table-container px-3">
+      <h2>Ocorrências</h2>
+      <table class="table table-striped">
+        <thead>
+          <tr>
+            <th>ID</th><th>Tipo de Ocorrência</th><th>Descrição</th><th>Local</th><th>Estado</th><th>Criticidade</th><th>Ficheiro</th><th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="(ocorrencia, index) in ocorrenciasFiltradas" :key="index">
+            <td>{{ ocorrencia.id }}</td>
+            <td>{{ ocorrencia.titulo }}</td>
+            <td>{{ ocorrencia.descricao }}</td>
+            <td>{{ ocorrencia.local }}</td>
+            <td>{{ ocorrencia.estado }}</td>
+            <td>{{ ocorrencia.criticidade }}</td>
+            <td>
+              <a v-if="ocorrencia.ficheiroBase64" :href="ocorrencia.ficheiroBase64" target="_blank">{{ ocorrencia.ficheiroNome }}</a>
+              <span v-else>-</span>
+            </td>
+            <td>
+              <button class="btn btn-primary btn-sm me-1" @click="selecionarOcorrencia(index)">Editar</button>
+              <button class="btn btn-danger btn-sm" @click="removerOcorrencia(index)">Apagar</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- FORMULÁRIO DE EDIÇÃO -->
+    <div class="form-container px-3" v-if="ocorrenciaSelecionada !== null">
+      <h3>Editar Ocorrência</h3>
+      <form @submit.prevent="guardarAlteracoes">
+        <div class="mb-2"><label>ID:</label><input type="number" class="form-control" v-model.number="ocorrencias[ocorrenciaSelecionada].id" /></div>
+        <div class="mb-2"><label>Tipo de Ocorrência:</label><input type="text" class="form-control" v-model="ocorrencias[ocorrenciaSelecionada].titulo" /></div>
+        <div class="mb-2"><label>Descrição:</label><input type="text" class="form-control" v-model="ocorrencias[ocorrenciaSelecionada].descricao" /></div>
+        <div class="mb-2"><label>Local:</label><input type="text" class="form-control" v-model="ocorrencias[ocorrenciaSelecionada].local" /></div>
+        <div class="mb-2">
+          <label>Estado:</label>
+          <select class="form-control" v-model="ocorrencias[ocorrenciaSelecionada].estado">
+            <option value="Em aberto">Em aberto</option>
+            <option value="Em análise">Em análise</option>
+            <option value="Resolvido">Resolvido</option>
+          </select>
+        </div>
+        <div class="mb-2">
+          <label>Criticidade:</label>
+          <select class="form-control" v-model.number="ocorrencias[ocorrenciaSelecionada].criticidade">
+            <option v-for="n in 5" :value="n">{{ n }}</option>
+          </select>
+        </div>
+        <button type="submit" class="btn btn-success">Guardar</button>
+        <button type="button" class="btn btn-secondary ms-2" @click="cancelarEdicao">Cancelar</button>
+      </form>
+    </div>
+
+    <!-- FORMULÁRIO DE ADIÇÃO -->
+    <div class="form-container px-3 mt-4">
+      <h3>Adicionar Nova Ocorrência</h3>
+      <form @submit.prevent="adicionarOcorrencia">
+        <div class="mb-2"><label>ID:</label><input type="number" class="form-control" v-model.number="novaOcorrencia.id" required /></div>
+        <div class="mb-2"><label>Tipo de Ocorrência:</label><input type="text" class="form-control" v-model="novaOcorrencia.titulo" required /></div>
+        <div class="mb-2"><label>Descrição:</label><input type="text" class="form-control" v-model="novaOcorrencia.descricao" required /></div>
+        <div class="mb-2"><label>Local:</label><input type="text" class="form-control" v-model="novaOcorrencia.local" required /></div>
+        <div class="mb-2">
+          <label>Estado:</label>
+          <select class="form-control" v-model="novaOcorrencia.estado" required>
+            <option value="Em aberto">Em aberto</option>
+            <option value="Em análise">Em análise</option>
+            <option value="Resolvido">Resolvido</option>
+          </select>
+        </div>
+        <div class="mb-2">
+          <label>Criticidade:</label>
+          <select class="form-control" v-model.number="novaOcorrencia.criticidade" required>
+            <option value="" disabled>Escolha...</option>
+            <option v-for="n in 5" :value="n">{{ n }}</option>
+          </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Adicionar</button>
+        <button type="button" class="btn btn-secondary ms-2" @click="limparFormulario">Limpar</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- SCRIPT VUE -->
+<script>
+Vue.createApp({
+  data() {
+    return {
+      filtro: '',
+      ocorrencias: [],
+      novaOcorrencia: {
+        id: null,
+        titulo: '',
+        descricao: '',
+        local: '',
+        estado: 'Em aberto',
+        criticidade: 1,
+        ficheiroNome: '',
+        ficheiroBase64: ''
+      },
+      ocorrenciaSelecionada: null
+    };
+  },
+  computed: {
+    ocorrenciasFiltradas() {
+      if (!this.filtro) return this.ocorrencias;
+      const termo = this.filtro.toLowerCase();
+      return this.ocorrencias.filter(o =>
+        o.id?.toString().includes(termo) ||
+        (o.titulo ?? '').toLowerCase().includes(termo) ||
+        (o.descricao ?? '').toLowerCase().includes(termo) ||
+        (o.local ?? '').toLowerCase().includes(termo) ||
+        (o.estado ?? '').toLowerCase().includes(termo)
+      );
+    }
+  },
+  methods: {
+    carregarDoLocalStorage() {
+      const dados = localStorage.getItem("ocorrencias");
+      const brutas = dados ? JSON.parse(dados) : [];
+      this.ocorrencias = brutas.map((o, index) => ({
+        id: o.id ?? index + 1,
+        titulo: o.titulo ?? o.tipo ?? '(Sem título)',
+        descricao: o.descricao ?? '',
+        local: o.local ?? '',
+        estado: o.estado ?? 'Em aberto',
+        criticidade: o.criticidade ?? 1,
+        data: o.data ?? new Date().toLocaleString(),
+        ficheiroNome: o.ficheiroNome ?? '',
+        ficheiroBase64: o.ficheiroBase64 ?? ''
+      }));
+    },
+    guardarNoLocalStorage() {
+      const normalizado = this.ocorrencias.map(o => ({
+        tipo: o.titulo,
+        local: o.local,
+        descricao: o.descricao,
+        estado: o.estado,
+        criticidade: o.criticidade,
+        data: o.data,
+        ficheiroNome: o.ficheiroNome,
+        ficheiroBase64: o.ficheiroBase64
+      }));
+      localStorage.setItem("ocorrencias", JSON.stringify(normalizado));
+    },
+    adicionarOcorrencia() {
+      const nova = {
+        ...this.novaOcorrencia,
+        id: this.ocorrencias.length ? Math.max(...this.ocorrencias.map(o => o.id)) + 1 : 1,
+        data: new Date().toLocaleString()
+      };
+      this.ocorrencias.push(nova);
+      this.guardarNoLocalStorage();
+      this.limparFormulario();
+    },
+    selecionarOcorrencia(index) {
+      this.ocorrenciaSelecionada = index;
+    },
+    guardarAlteracoes() {
+      this.guardarNoLocalStorage();
+      this.ocorrenciaSelecionada = null;
+    },
+    removerOcorrencia(index) {
+      this.ocorrencias.splice(index, 1);
+      this.guardarNoLocalStorage();
+    },
+    cancelarEdicao() {
+      this.ocorrenciaSelecionada = null;
+    },
+    limparFormulario() {
+      this.novaOcorrencia = {
+        id: null,
+        titulo: '',
+        descricao: '',
+        local: '',
+        estado: 'Em aberto',
+        criticidade: 1,
+        ficheiroNome: '',
+        ficheiroBase64: ''
+      };
+    }
+  },
+  mounted() {
+    this.carregarDoLocalStorage();
+  }
+}).mount('#app');
+</script>
+</body>
+</html>
